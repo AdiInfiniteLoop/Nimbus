@@ -8,6 +8,9 @@ import sys
 import logging
 import multiprocessing
 
+
+from scheduling import Scheduler
+
 # Configure logging with more details
 logging.basicConfig(
     level=logging.INFO,
@@ -229,95 +232,14 @@ class PodScheduler:
             return {'error': 'No nodes available in the cluster'}
         
         # First-Fit algorithm implementation with proper CPU validation
-        suitable_nodes = []
-        for node_id, node_info in nodes.items():
-            # Skip unhealthy nodes
-            if node_info['status'] != 'healthy':
-                logger.info(f"Skipping unhealthy node {node_id}")
-                continue
-            
-            # Verify Docker container exists and is running
-            try:
-                container = client.containers.get(node_info['container_id'])
-                if container.status != 'running':
-                    logger.warning(f"Node {node_id} container is not running (status: {container.status})")
-                    node_info['status'] = 'unhealthy'
-                    continue
-            except docker.errors.NotFound:
-                logger.warning(f"Node {node_id} container not found in Docker")
-                node_info['status'] = 'unhealthy'
-                continue
-            except Exception as e:
-                logger.warning(f"Error checking node {node_id} container: {str(e)}")
-                continue
-            
-            # Calculate current CPU usage
-            current_cpu_usage = sum(pods[pod_id]['cpu_required'] for pod_id in node_info['pods'] if pod_id in pods)
-            cpu_available = node_info['cpu_capacity'] - current_cpu_usage
-            
-            # Update node's available CPU
-            node_info['cpu_available'] = cpu_available
-            
-            # Check if node has enough CPU
-            if cpu_available >= cpu_required:
-                suitable_nodes.append((node_id, node_info))
+        scheduler = Scheduler(client, nodes, pods)
+        pod_id, error = scheduler.schedule(cpu_required, image)
+    
+        if error:
+            logger.error(f"Scheduling failed: {error}")
+            return {'error': error}
         
-        # Sort nodes by available CPU (most available first)
-        suitable_nodes.sort(key=lambda x: x[1]['cpu_available'], reverse=True)
-        
-        if not suitable_nodes:
-            logger.error(f"No suitable node found for pod requiring {cpu_required} CPU cores")
-            return {'error': f'No node has {cpu_required} CPU cores available. Current nodes are at capacity.'}
-        
-        # Use the node with most available CPU
-        node_id, node_info = suitable_nodes[0]
-        pod_id = str(uuid.uuid4())
-        
-        # Create an actual container for the pod
-        try:
-            # Use a random port between 10000-20000 for port mapping
-            host_port = 10000 + (hash(pod_id) % 10000)
-            
-            # Launch container for the pod
-            pod_container = client.containers.run(
-                image=image,
-                detach=True,
-                name=f'pod-{pod_id}',
-                ports={'80/tcp': host_port},
-                environment={
-                    'POD_ID': pod_id,
-                    'NODE_ID': node_id
-                }
-            )
-            
-            logger.info(f"Created pod container: {pod_container.name} (ID: {pod_container.short_id})")
-            
-            # Update resource allocation
-            node_info['cpu_available'] -= cpu_required
-            node_info['pods'].append(pod_id)
-            
-            # Store pod information
-            pods[pod_id] = {
-                'node_id': node_id,
-                'cpu_required': cpu_required,
-                'created_at': datetime.now().isoformat(),
-                'container_id': pod_container.id,
-                'status': 'running',
-                'image': image,
-                'host_port': host_port
-            }
-            
-            logger.info(f"Successfully scheduled pod {pod_id} on node {node_id}")
-            logger.info(f"Pod is accessible at http://localhost:{host_port}")
-            logger.info(f"Node {node_id} now has {node_info['cpu_available']} CPU cores available")
-            return pod_id
-            
-        except docker.errors.APIError as e:
-            logger.error(f"Docker API error while creating pod container: {str(e)}")
-            return {'error': f'Failed to create pod container: {str(e)}'}
-        except Exception as e:
-            logger.error(f"Unexpected error while creating pod container: {str(e)}")
-            return {'error': f'Unexpected error: {str(e)}'}
+        return pod_id
 
     @staticmethod
     def reschedule_pods(failed_node_id):
