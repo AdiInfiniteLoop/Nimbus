@@ -8,8 +8,10 @@ import sys
 import logging
 import multiprocessing
 
-
+from flask_cors import CORS
 from scheduling import Scheduler
+from ml_predictor import CPUPredictor, PredictorManager
+from sklearn.ensemble import RandomForestRegressor  
 
 # Configure logging with more details
 logging.basicConfig(
@@ -29,6 +31,7 @@ logger.info(f"Maximum node CPU capacity: {MAX_NODE_CPU}")
 logger.info(f"Maximum pod CPU requirement: {MAX_POD_CPU}")
 
 app = Flask(__name__)
+CORS(app)
 
 # In-memory storage for cluster state
 nodes = {}  # {node_id: {cpu_capacity, cpu_available, pods, last_heartbeat, status}}
@@ -64,6 +67,9 @@ try:
     # Test Docker connection
     client.ping()
     logger.info("Successfully connected to Docker")    
+
+    cpu_predictor = CPUPredictor(history_window=60, prediction_interval=30)
+    predictor_manager = None 
     # List all existing containers
     existing_containers = client.containers.list()
     logger.info(f"Found {len(existing_containers)} existing containers")
@@ -172,6 +178,8 @@ class NodeManager:
                 # Remove the node from our data structure
                 del nodes[node_id]
                 logger.info(f"Successfully removed node {node_id} from cluster")
+
+                cpu_predictor.cleanup_node(node_id)
 
                 # Now reschedule all pods from the removed node
                 rescheduled_pods = []
@@ -348,6 +356,23 @@ class HealthMonitor:
                             'pod_stats': pod_stats
                         }
                     })
+
+                    try:
+                        # Calculate actual CPU percentage
+                        cpu_count = nodes[node_id]['cpu_capacity']
+                        cpu_allocated = sum(pods[pid]['cpu_required'] for pid in nodes[node_id]['pods'] if pid in pods)
+                        cpu_usage_percent = (cpu_allocated / cpu_count * 100) if cpu_count > 0 else 0
+                        
+                        cpu_predictor.add_metric(
+                            node_id=node_id,
+                            cpu_percent=cpu_usage_percent,
+                            memory_percent=memory_percent,
+                            pod_count=len(nodes[node_id]['pods']),
+                            total_cpu_capacity=nodes[node_id]['cpu_capacity']
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to add metric to predictor: {e}")
+
                 except Exception as e:
                     # Update node with error information
                     if node_id in nodes:
@@ -526,9 +551,33 @@ def get_cluster_status():
     }
     return jsonify(status)
 
+
+@app.route('/cluster/predictions', methods=['GET'])
+def get_predictions():
+    """Get CPU predictions for all nodes"""
+    logger.info("Received request for CPU predictions")
+    predictions = cpu_predictor.get_all_predictions()
+    return jsonify({
+        'predictions': predictions,
+        'prediction_interval_seconds': cpu_predictor.prediction_interval
+    })
+
+@app.route('/nodes/<node_id>/prediction', methods=['GET'])
+def get_node_prediction(node_id):
+    """Get CPU prediction for specific node"""
+    prediction = cpu_predictor.get_prediction(node_id)
+    if prediction is None:
+        return jsonify({'error': 'No prediction available'}), 404
+    return jsonify(prediction)
+
 if __name__ == '__main__':
     logger.info("Starting API server...")
     # Start health monitoring thread in a separate process
     threading.Thread(target=HealthMonitor.check_health, daemon=True).start()
     logger.info("Health monitoring thread started")
+    # Start ML predictor
+    predictor_manager = PredictorManager(cpu_predictor, nodes, pods)
+    predictor_manager.start()
+    logger.info("ML predictor started")
+
     app.run(host='0.0.0.0', port=5001, debug=True) 
