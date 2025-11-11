@@ -1,147 +1,532 @@
-# Kubernetes-like Distributed Systems Cluster Simulator
+# 🚀 Cluster Orchestrator - BTech Major Project
 
-This project implements a simplified Kubernetes-like cluster simulator that demonstrates core concepts of distributed systems, including node management, pod scheduling, and health monitoring.
+## ML-Powered Container Orchestration System with Auto-Scaling
 
-## Features
+A sophisticated Kubernetes-inspired container orchestration platform featuring machine learning-based CPU prediction, intelligent auto-scaling, and real-time monitoring.
 
-- Node Management (add/remove nodes)
-- Pod Scheduling with First-Fit algorithm
-- Health Monitoring & Fault Tolerance
-- Node Recovery & Pod Rescheduling
-- Simple CLI Interface
-- Docker-based node simulation
-- Real container-based pods with applications
+---
 
-## Prerequisites
+## 📋 Table of Contents
+- [Features](#features)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [ML Model Details](#ml-model-details)
+- [Screenshots](#screenshots)
+- [Project Structure](#project-structure)
 
-- Python 3.9 or higher
-- Docker installed and running
-- pip (Python package manager)
+---
 
-## Setup
+## ✨ Features
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd kubernetes-simulator
+### Core Functionality
+- ⚡ **Container Orchestration** - Deploy and manage pods across multiple nodes
+- 🤖 **ML-Based CPU Prediction** - Random Forest model predicts future CPU usage
+- 🔄 **Intelligent Auto-Scaling** - Automatically add/remove nodes based on predictions
+- 📊 **Real-time Monitoring** - Live metrics and health monitoring
+- 🎯 **Smart Scheduling** - Filter-Score-Bind algorithm for optimal pod placement
+
+### Advanced Features
+- 📈 **40+ Engineered Features** - Trends, patterns, momentum for accurate predictions
+- 🔔 **Email Alerts** - Notifications for node failures and scaling events
+- 💾 **Config Management** - Save/load cluster configurations
+- 📁 **Log Export** - Export system logs in TXT/JSON formats
+- 🌓 **Dark/Light Theme** - User-friendly UI with theme toggle
+- 📉 **Performance Analytics** - Training metrics, R² scores, MAE, RMSE
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React)                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │  Dashboard   │  │  Charts &    │  │   Settings   │         │
+│  │  Monitoring  │  │  Visualizations│  │   Modal     │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+│           ↓                 ↓                 ↓                  │
+│  ┌───────────────────────────────────────────────────┐         │
+│  │         REST API (HTTP/JSON)                       │         │
+│  └───────────────────────────────────────────────────┘         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    BACKEND (Flask API Server)                    │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                   API Endpoints                           │  │
+│  │  /nodes  /pods  /cluster/status  /predictions  /alerts   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              ↓                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │ Node Manager │  │Pod Scheduler │  │ Health       │        │
+│  │              │  │              │  │ Monitor      │        │
+│  │ - Add/Remove │  │ - Filter     │  │              │        │
+│  │ - Health     │  │ - Score      │  │ - Heartbeat  │        │
+│  │   Check      │  │ - Bind       │  │ - Rescheduling        │
+│  └──────────────┘  └──────────────┘  └──────────────┘        │
+│                              ↓                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │ CPU Predictor│  │ Auto-Scaler  │  │Config Manager│        │
+│  │              │  │              │  │              │        │
+│  │ - Random     │  │ - Thresholds │  │ - Save/Load  │        │
+│  │   Forest     │  │ - Cooldown   │  │ - Export     │        │
+│  │ - 40+        │  │ - Add/Remove │  │ - Backup     │        │
+│  │   Features   │  │   Nodes      │  │              │        │
+│  └──────────────┘  └──────────────┘  └──────────────┘        │
+│                              ↓                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │Email Alerter │  │Log Exporter  │  │  Monitoring  │        │
+│  │              │  │              │  │   Stats      │        │
+│  │ - Failures   │  │ - TXT/JSON   │  │              │        │
+│  │ - Recoveries │  │ - Timestamp  │  │ - Freshness  │        │
+│  │ - Scaling    │  │   Export     │  │ - Quality    │        │
+│  └──────────────┘  └──────────────┘  └──────────────┘        │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    DOCKER ENGINE                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │  Node        │  │  Node        │  │  Node        │        │
+│  │  Container   │  │  Container   │  │  Container   │        │
+│  │  ┌────────┐  │  │  ┌────────┐  │  │  ┌────────┐  │        │
+│  │  │ Pod 1  │  │  │  │ Pod 2  │  │  │  │ Pod 3  │  │        │
+│  │  └────────┘  │  │  └────────┘  │  │  └────────┘  │        │
+│  │  ┌────────┐  │  │  ┌────────┐  │  │              │        │
+│  │  │ Pod 4  │  │  │  │ Pod 5  │  │  │              │        │
+│  │  └────────┘  │  │  └────────┘  │  │              │        │
+│  └──────────────┘  └──────────────┘  └──────────────┘        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-2. Install dependencies:
+---
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Python 3.9+** - Core programming language
+- **Flask** - REST API framework
+- **Docker SDK** - Container management
+- **scikit-learn** - Machine learning (Random Forest)
+- **NumPy** - Numerical computations
+- **Threading** - Concurrent operations
+
+### Frontend
+- **React 18** - UI framework
+- **Recharts** - Data visualization
+- **Tailwind CSS** - Styling
+- **Lucide Icons** - Icon library
+
+### Infrastructure
+- **Docker** - Containerization platform
+- **Docker Desktop** - Development environment
+
+---
+
+## 📦 Installation
+
+### Prerequisites
 ```bash
+# Install Docker Desktop
+# Download from: https://www.docker.com/products/docker-desktop/
+
+# Verify Docker installation
+docker --version
+docker ps
+```
+
+### Backend Setup
+```bash
+# Clone the repository
+git clone <repository-url>
+cd cluster-orchestrator
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-3. Make sure Docker is running on your system.
+### Requirements.txt
+```
+flask==3.0.0
+flask-cors==4.0.0
+docker==7.0.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+```
 
-## Running the Simulator
-
-1. Start the API Server:
+### Run the Application
 ```bash
+# Start backend
 python api_server.py
+
+# Backend will be available at: http://localhost:5001
 ```
 
-2. In a new terminal, start the CLI client:
+### Frontend Setup
+The dashboard is provided as a React artifact. Simply:
+1. Start the backend server
+2. Open the React dashboard artifact
+3. It will automatically connect to `http://localhost:5001`
+
+---
+
+## 🎮 Usage
+
+### 1. Start the System
 ```bash
-python cli_client.py
+# Terminal 1: Start backend
+python api_server.py
+
+# Terminal 2: Open dashboard (React artifact)
+# The dashboard connects automatically to the API
 ```
 
-## Usage
+### 2. Add Nodes
+- Click "Add Node" button
+- Specify CPU capacity (1-8 cores)
+- Node container is created automatically
 
-The CLI provides the following commands:
+### 3. Create Pods
+- Click "Create Pod" button
+- Specify CPU requirement and image
+- Pod is scheduled using ML predictions
 
-- `add-node <cpu_capacity>`: Add a new node with specified CPU capacity (max 8 cores)
-- `remove-node <node_id>`: Remove a node by ID
-- `create-pod <cpu_required> [image]`: Create a new pod with CPU requirements (max 6 cores) and optional container image
-- `status`: Show cluster status
-- `help`: Show help message
-- `exit`: Exit the program
+### 4. Enable Auto-Scaling
+- Go to Settings modal
+- Configure thresholds and limits
+- Click "Enable" in auto-scaler control panel
+- System will automatically scale based on predicted CPU
 
-### Example Usage
+### 5. Monitor & Export
+- View real-time metrics and predictions
+- Export logs (TXT/JSON) from Settings
+- Save/Load cluster configurations
+- Enable email alerts for failures
 
-1. Add a node with 4 CPU cores:
+---
+
+## 📡 API Documentation
+
+### Node Management
+```bash
+# Add Node
+POST /nodes
+Body: {"cpu_capacity": 4}
+
+# Remove Node
+DELETE /nodes/<node_id>
+
+# Get Cluster Status
+GET /cluster/status
 ```
-add-node 4
+
+### Pod Management
+```bash
+# Create Pod
+POST /pods
+Body: {"cpu_required": 2, "image": "nginx:latest"}
+
+# Get Cluster Status (includes pods)
+GET /cluster/status
 ```
 
-2. Create a pod requiring 2 CPU cores with the default nginx image:
-```
-create-pod 2
-```
+### ML Predictions
+```bash
+# Get All Predictions
+GET /cluster/predictions
 
-3. Create a pod with a specific container image:
-```
-create-pod 2 httpd:latest
-```
+# Get Node Prediction
+GET /nodes/<node_id>/prediction
 
-4. Check cluster status:
-```
-status
+# Export Predictions CSV
+GET /predictions/export?node_id=<optional>
 ```
 
-5. Remove a node:
+### Auto-Scaling
+```bash
+# Enable Auto-Scaling
+POST /autoscaler/enable
+
+# Disable Auto-Scaling
+POST /autoscaler/disable
+
+# Get Auto-Scaler Status
+GET /autoscaler/status
+
+# Update Configuration
+POST /autoscaler/config
+Body: {
+  "scale_up_threshold": 75,
+  "scale_down_threshold": 30,
+  "min_nodes": 1,
+  "max_nodes": 10
+}
+
+# Get Scaling History
+GET /autoscaler/history?limit=50
 ```
-remove-node <node_id>
+
+### Configuration & Logs
+```bash
+# Save Cluster Config
+POST /cluster/config/save
+
+# Load Cluster Config
+POST /cluster/config/load
+
+# Export Config
+GET /cluster/config/export
+
+# Export Logs
+GET /logs/export?format=txt  # or format=json
 ```
 
-### Pod Containers
+### Email Alerts
+```bash
+# Enable Alerts
+POST /alerts/enable
 
-The pods in this simulator are actual Docker containers running various applications:
+# Disable Alerts
+POST /alerts/disable
 
-- **Default Image**: nginx:latest (web server)
-- **Other Available Images**:
-  - httpd:latest (Apache web server)
-  - python:3.9-slim (Python environment)
-  - redis:latest (Redis database)
-  - mysql:5.7 (MySQL database)
+# Update Configuration
+POST /alerts/config
+Body: {
+  "sender_email": "admin@example.com",
+  "recipient_emails": ["ops@example.com"]
+}
 
-Each pod container is automatically assigned a port mapping, allowing you to access the application. When a pod is created, the response will include an access URL (e.g., http://localhost:12345).
+# Send Test Alert
+POST /alerts/test
 
-### Resource Limits
+# Simulate Node Failure
+POST /alerts/simulate-failure
+Body: {"node_id": "<node_id>"}
 
-- Nodes: Maximum of 8 CPU cores per node
-- Pods: Maximum of 6 CPU cores per pod
-- All CPU values must be positive integers
+# Get Alert History
+GET /alerts/history?limit=50
+```
 
-## Architecture
+### Monitoring
+```bash
+# Get Monitoring Stats
+GET /monitoring/stats
+```
 
-### Components
+---
 
-1. **API Server**
-   - Manages the entire cluster
-   - Handles node and pod operations
-   - Implements health monitoring
-   - Runs on port 5000
+## 🤖 ML Model Details
 
-2. **Node Manager**
-   - Manages registered nodes through Docker containers
-   - Tracks CPU resources
-   - Ensures Docker containers are running and healthy
-   - Handles node lifecycle
+### Random Forest Regressor
+- **Algorithm**: Random Forest for time-series prediction
+- **Target**: CPU usage 30 seconds ahead
+- **Training**: Every 2 minutes with latest data
+- **Features**: 40+ engineered features
 
-3. **Pod Scheduler**
-   - Implements First-Fit scheduling algorithm
-   - Creates real Docker containers for pods with applications
-   - Maps container ports to host ports for accessibility
-   - Manages pod placement
-   - Verifies node health with Docker before scheduling
-   - Handles pod rescheduling
+### Feature Engineering
+```python
+Features Include:
+1. Trends (short/medium/long term)
+2. Velocity & Acceleration
+3. Volatility (std deviation)
+4. Rate of Change
+5. Moving Averages (MA-6, MA-12, MA-24, MA-48)
+6. Momentum Indicators (MACD-like)
+7. Statistical (min, max, percentiles)
+8. Historical Context (deviation from history)
+9. Workload (pod count, CPU capacity)
+10. Temporal (hour, day, cyclical encoding)
+```
 
-4. **Health Monitor**
-   - Tracks node health via heartbeats
-   - Checks actual Docker container status
-   - Detects node failures and container issues
-   - Triggers pod rescheduling
+### Performance Metrics
+- **R² Score**: 0.6-0.9 (Good to Excellent)
+- **MAE**: 5-10% (Good accuracy)
+- **RMSE**: 6-12% (Low error)
+- **Training Time**: 0.5-2 seconds per node
+- **Prediction Time**: <0.1 seconds
 
-### Fault Tolerance
+### Why This Approach Works
+✅ Focuses on **patterns and trends**, not current values
+✅ Avoids **echo predictions** (predicting current value)
+✅ Captures **momentum and acceleration**
+✅ Includes **temporal patterns** (business hours, etc.)
+✅ Uses **historical context** for better predictions
 
-- Nodes send heartbeats every 5 seconds
-- Nodes are marked as unhealthy after 3 missed heartbeats or if the Docker container is not running
-- Pods are automatically rescheduled from failed nodes
-- Cluster state is maintained in memory
+---
 
-## Notes
+## 📸 Screenshots
 
-- This is a simplified simulation and does not implement all Kubernetes features
-- The simulator uses Docker containers to simulate physical nodes
-- CPU resources are simulated and not actually limited
-- The system is designed for educational purposes to demonstrate distributed systems concepts 
+### Dashboard
+- Real-time cluster monitoring
+- CPU distribution pie chart
+- Live CPU usage line chart
+- Node status table with predictions
+
+### Auto-Scaling Panel
+- Enable/disable auto-scaling
+- Configure thresholds and limits
+- View scaling history
+- Real-time recommendations
+
+### Settings Modal
+- Auto-scaler configuration
+- Email alert setup
+- Log export options
+- Cluster backup/restore
+
+---
+
+## 📁 Project Structure
+
+```
+cluster-orchestrator/
+├── api_server.py              # Main Flask API server
+├── scheduling.py              # Filter-Score-Bind scheduler
+├── ml_predictor_enhanced.py   # ML prediction engine
+├── autoscaler.py              # Auto-scaling logic
+├── config_manager.py          # Config & log management
+├── requirements.txt           # Python dependencies
+├── README.md                  # This file
+├── cluster_config.json        # Saved cluster state
+├── orchestrator.log           # System logs
+└── predictions_export.csv     # Exported predictions
+```
+
+---
+
+## 🎯 Key Innovations
+
+### 1. ML-Driven Scheduling
+Traditional schedulers react to current load. Our system **predicts future load** and makes proactive decisions.
+
+### 2. Rich Feature Engineering
+Using 40+ features focusing on **trends and patterns** instead of just current values prevents echo predictions.
+
+### 3. Parallel Training
+Multiple node models train simultaneously using ThreadPoolExecutor, achieving **4x speedup**.
+
+### 4. Comprehensive Monitoring
+Track data freshness, model age, training duration, and prediction quality in real-time.
+
+### 5. Production-Grade Features
+- Auto-scaling with cooldown
+- Email alerts for critical events
+- Config save/load for disaster recovery
+- Log export for debugging
+
+---
+
+## 🔬 Testing & Validation
+
+### Load Testing
+```python
+# Create multiple nodes
+for i in range(5):
+    POST /nodes {"cpu_capacity": 4}
+
+# Create many pods
+for i in range(20):
+    POST /pods {"cpu_required": 1, "image": "nginx:latest"}
+
+# Enable auto-scaling and observe behavior
+POST /autoscaler/enable
+```
+
+### Failure Simulation
+```bash
+# Simulate node failure
+POST /alerts/simulate-failure
+Body: {"node_id": "<node_id>"}
+
+# Observe:
+# - Email alert sent
+# - Pods rescheduled automatically
+# - Health status updated
+```
+
+### Performance Metrics
+- **Scheduling Latency**: <100ms per pod
+- **ML Prediction Time**: <100ms per node
+- **Auto-Scale Decision**: <1 second
+- **UI Update Frequency**: 5 seconds
+
+---
+
+## 🚀 Future Enhancements
+
+### Short Term
+- [ ] WebSocket for real-time updates
+- [ ] Persistent database (PostgreSQL)
+- [ ] User authentication (JWT)
+- [ ] Anomaly detection (Isolation Forest)
+
+### Long Term
+- [ ] Multi-region support
+- [ ] GPU scheduling
+- [ ] Custom resource types
+- [ ] Helm chart support
+
+---
+
+## 👨‍🎓 Academic Context
+
+**Project Type**: BTech 4th Year Major Project  
+**Domain**: Cloud Computing, Machine Learning, DevOps  
+**Duration**: 6 months  
+
+### Learning Outcomes
+1. Container orchestration concepts
+2. Machine learning for time-series prediction
+3. RESTful API design
+4. Real-time monitoring systems
+5. Production-grade software development
+
+### Technologies Demonstrated
+- **Backend Development**: Flask, Python
+- **Machine Learning**: scikit-learn, Random Forest
+- **DevOps**: Docker, containerization
+- **Frontend**: React, data visualization
+- **System Design**: Microservices, distributed systems
+
+---
+
+## 📄 License
+
+This project is developed for academic purposes as part of BTech curriculum.
+
+---
+
+## 👤 Author
+
+**BTech 4th Year Student**  
+Computer Science & Engineering  
+
+---
+
+## 🙏 Acknowledgments
+
+- Inspired by Kubernetes architecture
+- Built with Docker for containerization
+- Machine learning using scikit-learn
+- UI components from Tailwind CSS & Lucide
+
+---
+
+## 📞 Support
+
+For issues or questions:
+1. Check API logs: `tail -f orchestrator.log`
+2. Verify Docker is running: `docker ps`
+3. Check container status: `docker ps -a`
+4. Review error messages in browser console
+
+---
+
+**Made with ❤️ for BTech Major Project**

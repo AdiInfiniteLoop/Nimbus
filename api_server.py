@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 import uuid
 import sys
+import os
 import logging
 import multiprocessing
 
@@ -12,6 +13,11 @@ from flask_cors import CORS
 from scheduling import Scheduler
 from ml_predictor import CPUPredictor, PredictorManager
 from sklearn.ensemble import RandomForestRegressor  
+
+from auto_scaler import AutoScaler
+from config_manager import ClusterConfigManager, LogExporter, EmailAlerter
+from flask import send_file
+import tempfile
 
 # Configure logging with more details
 logging.basicConfig(
@@ -70,6 +76,13 @@ try:
 
     cpu_predictor = CPUPredictor(history_window=60, prediction_interval=30)
     predictor_manager = None 
+
+    config_manager = ClusterConfigManager(nodes, pods, client)
+    log_exporter = LogExporter()
+    email_alerter = EmailAlerter(enabled=False)  # Disabled by default
+    autoscaler = None  # Will be initialized after Flask app starts
+
+
     # List all existing containers
     existing_containers = client.containers.list()
     logger.info(f"Found {len(existing_containers)} existing containers")
@@ -208,7 +221,8 @@ class NodeManager:
                         else:
                             rescheduled_pods.append(pod_id)
                             logger.info(f"Successfully rescheduled pod {pod_id}")
-                
+                email_alerter.node_recovery_alert(node_id)  # If node was unhealthy
+
                 return {
                     'message': f'Node {node_id} removed successfully',
                     'rescheduled_pods': len(rescheduled_pods),
@@ -415,10 +429,16 @@ class HealthMonitor:
                         if node_info['status'] != 'healthy':
                             logger.info(f"Node {node_id} recovered and marked as healthy")
                             node_info['status'] = 'healthy'
+
+                            email_alerter.node_failure_alert(node_id)
+
                     else:
                         if node_info['status'] == 'healthy':
                             logger.warning(f"Node {node_id} marked as unhealthy - Failed conditions: {[k for k,v in conditions.items() if not v]}")
                             node_info['status'] = 'unhealthy'
+
+                            email_alerter.node_recovery_alert(node_id)
+
                             PodScheduler.reschedule_pods(node_id)
                     
                     # Update detailed health status
@@ -439,7 +459,7 @@ class HealthMonitor:
                         node_info['status'] = 'unhealthy'
                         PodScheduler.reschedule_pods(node_id)
             
-            time.sleep(5)  # Check every 5 seconds
+            time.sleep(20)  # Check every 5 seconds
 
 # API Endpoints
 @app.route('/nodes', methods=['POST'])
@@ -570,14 +590,296 @@ def get_node_prediction(node_id):
         return jsonify({'error': 'No prediction available'}), 404
     return jsonify(prediction)
 
+
+@app.route('/predictions/export', methods=['GET'])
+def export_predictions():
+    """Export predictions to CSV file"""
+    logger.info("Received request to export predictions")
+    node_id = request.args.get('node_id')
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'predictions_{node_id if node_id else "all"}_{timestamp}.csv'
+    filepath = os.path.join('/tmp', filename)
+    
+    # Export to CSV
+    result = cpu_predictor.export_to_csv(node_id, filepath)
+    
+    if result is None:
+        return jsonify({'error': 'No data available for export'}), 404
+    
+    try:
+        # Send file
+        from flask import send_file
+        return send_file(
+            filepath,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        logger.error(f"Error sending file: {e}")
+        return jsonify({'error': 'Failed to send file'}), 500
+
+
+@app.route('/monitoring/stats', methods=['GET'])
+def get_monitoring_stats():
+    """Get comprehensive monitoring statistics for data and model freshness"""
+    logger.info("Received request for monitoring stats")
+    stats = cpu_predictor.get_monitoring_stats()
+    return jsonify(stats)
+
+
+
+
+@app.route('/autoscaler/enable', methods=['POST'])
+def enable_autoscaler():
+    """Enable auto-scaling"""
+    logger.info("Enabling auto-scaler")
+    if autoscaler:
+        autoscaler.enable()
+        return jsonify({'message': 'Auto-scaling enabled', 'status': 'enabled'})
+    return jsonify({'error': 'Auto-scaler not initialized'}), 500
+
+@app.route('/autoscaler/disable', methods=['POST'])
+def disable_autoscaler():
+    """Disable auto-scaling"""
+    logger.info("Disabling auto-scaler")
+    if autoscaler:
+        autoscaler.disable()
+        return jsonify({'message': 'Auto-scaling disabled', 'status': 'disabled'})
+    return jsonify({'error': 'Auto-scaler not initialized'}), 500
+
+@app.route('/autoscaler/status', methods=['GET'])
+def get_autoscaler_status():
+    """Get auto-scaler status and metrics"""
+    if not autoscaler:
+        return jsonify({'error': 'Auto-scaler not initialized'}), 500
+    
+    status = autoscaler.get_status()
+    return jsonify(status)
+
+@app.route('/autoscaler/config', methods=['GET', 'POST'])
+def autoscaler_config():
+    """Get or update auto-scaler configuration"""
+    if not autoscaler:
+        return jsonify({'error': 'Auto-scaler not initialized'}), 500
+    
+    if request.method == 'POST':
+        config = request.get_json()
+        autoscaler.update_config(config)
+        return jsonify({'message': 'Configuration updated', 'config': autoscaler.get_config()})
+    
+    return jsonify(autoscaler.get_config())
+
+@app.route('/autoscaler/history', methods=['GET'])
+def get_autoscaler_history():
+    """Get auto-scaling history"""
+    if not autoscaler:
+        return jsonify({'error': 'Auto-scaler not initialized'}), 500
+    
+    limit = request.args.get('limit', 50, type=int)
+    history = autoscaler.get_history(limit)
+    return jsonify({'history': history, 'total': len(history)})
+
+
+
+@app.route('/cluster/config/save', methods=['POST'])
+def save_cluster_config():
+    """Save current cluster configuration"""
+    logger.info("Saving cluster configuration")
+    filepath = 'cluster_config.json'
+    success = config_manager.save_config(filepath)
+    
+    if success:
+        return jsonify({'message': 'Configuration saved', 'filepath': filepath})
+    return jsonify({'error': 'Failed to save configuration'}), 500
+
+@app.route('/cluster/config/load', methods=['POST'])
+def load_cluster_config():
+    """Load cluster configuration (returns config for review)"""
+    logger.info("Loading cluster configuration")
+    filepath = 'cluster_config.json'
+    config = config_manager.load_config(filepath)
+    
+    if config:
+        return jsonify({
+            'message': 'Configuration loaded',
+            'config': config,
+            'note': 'This is a preview. Use /cluster/config/apply to apply it.'
+        })
+    return jsonify({'error': 'Failed to load configuration'}), 500
+
+@app.route('/cluster/config/export', methods=['GET'])
+def export_cluster_config():
+    """Export current configuration as JSON download"""
+    logger.info("Exporting cluster configuration")
+    config = config_manager.export_config()
+    
+    # Create temporary file
+    temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
+    json.dump(config, temp_file, indent=2)
+    temp_file.close()
+    
+    return send_file(
+        temp_file.name,
+        mimetype='application/json',
+        as_attachment=True,
+        download_name=f'cluster_config_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    )
+
+# ==================== LOGS EXPORT ENDPOINTS ====================
+
+@app.route('/logs/export', methods=['GET'])
+def export_logs():
+    """Export system logs"""
+    format_type = request.args.get('format', 'txt')  # txt or json
+    logger.info(f"Exporting logs in {format_type} format")
+    
+    # Read logs from the logging system
+    # In production, you'd read from actual log file
+    logs = []
+    try:
+        with open('orchestrator.log', 'r') as f:
+            logs = f.readlines()
+    except FileNotFoundError:
+        # Generate sample logs if file doesn't exist
+        logs = [
+            f"{datetime.now().isoformat()} - INFO - Sample log entry\n"
+        ]
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    if format_type == 'json':
+        filepath = f'logs_{timestamp}.json'
+        log_exporter.export_json(logs, filepath)
+        mimetype = 'application/json'
+    else:
+        filepath = f'logs_{timestamp}.txt'
+        log_exporter.export_txt(logs, filepath)
+        mimetype = 'text/plain'
+    
+    return send_file(
+        filepath,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=filepath
+    )
+
+# ==================== EMAIL ALERTS ENDPOINTS ====================
+
+@app.route('/alerts/enable', methods=['POST'])
+def enable_alerts():
+    """Enable email alerts"""
+    logger.info("Enabling email alerts")
+    email_alerter.enable()
+    return jsonify({'message': 'Email alerts enabled', 'status': 'enabled'})
+
+@app.route('/alerts/disable', methods=['POST'])
+def disable_alerts():
+    """Disable email alerts"""
+    logger.info("Disabling email alerts")
+    email_alerter.disable()
+    return jsonify({'message': 'Email alerts disabled', 'status': 'disabled'})
+
+@app.route('/alerts/config', methods=['GET', 'POST'])
+def alerts_config():
+    """Get or update email alert configuration"""
+    if request.method == 'POST':
+        config = request.get_json()
+        email_alerter.update_config(config)
+        return jsonify({'message': 'Alert configuration updated'})
+    
+    return jsonify({
+        'enabled': email_alerter.enabled,
+        'config': email_alerter.config
+    })
+
+@app.route('/alerts/test', methods=['POST'])
+def test_alert():
+    """Send a test alert"""
+    logger.info("Sending test alert")
+    success = email_alerter.send_alert(
+        'Test Alert',
+        'This is a test alert from the Cluster Orchestrator',
+        'INFO'
+    )
+    return jsonify({'message': 'Test alert sent', 'success': success})
+
+@app.route('/alerts/history', methods=['GET'])
+def get_alert_history():
+    """Get alert history"""
+    limit = request.args.get('limit', 50, type=int)
+    history = email_alerter.get_alert_history(limit)
+    return jsonify({'history': history, 'total': len(history)})
+
+@app.route('/alerts/simulate-failure', methods=['POST'])
+def simulate_node_failure():
+    """Simulate a node failure and trigger alert"""
+    data = request.get_json()
+    node_id = data.get('node_id')
+    
+    if not node_id or node_id not in nodes:
+        return jsonify({'error': 'Invalid node ID'}), 400
+    
+    logger.info(f"Simulating failure for node {node_id}")
+    
+    # Mark node as unhealthy
+    nodes[node_id]['status'] = 'unhealthy'
+    
+    # Send alert
+    email_alerter.node_failure_alert(node_id)
+    
+    # Trigger rescheduling
+    from api_server import PodScheduler
+    PodScheduler.reschedule_pods(node_id)
+    
+    return jsonify({
+        'message': f'Node {node_id} marked as failed',
+        'alert_sent': True
+    })
+
+    
 if __name__ == '__main__':
     logger.info("Starting API server...")
-    # Start health monitoring thread in a separate process
+    
+    # Configure logging to file
+    file_handler = logging.FileHandler('orchestrator.log')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s'
+    ))
+    logging.getLogger().addHandler(file_handler)
+    
+    # Start health monitoring thread
     threading.Thread(target=HealthMonitor.check_health, daemon=True).start()
     logger.info("Health monitoring thread started")
+    
     # Start ML predictor
     predictor_manager = PredictorManager(cpu_predictor, nodes, pods)
     predictor_manager.start()
     logger.info("ML predictor started")
-
-    app.run(host='0.0.0.0', port=5001, debug=True) 
+    
+    # Initialize and start auto-scaler
+    autoscaler = AutoScaler(nodes, pods, cpu_predictor, NodeManager, config={
+        'scale_up_threshold': 75,
+        'scale_down_threshold': 30,
+        'min_nodes': 1,
+        'max_nodes': 10,
+        'scale_up_cpu': 4,
+        'cooldown_seconds': 60
+    })
+    autoscaler.start()
+    logger.info("Auto-scaler initialized (disabled by default)")
+    
+    logger.info("=" * 50)
+    logger.info("🚀 Cluster Orchestrator API Server Ready")
+    logger.info("=" * 50)
+    logger.info("API Endpoints:")
+    logger.info("  - Cluster: http://localhost:5001/cluster/status")
+    logger.info("  - Auto-Scaling: http://localhost:5001/autoscaler/status")
+    logger.info("  - Predictions: http://localhost:5001/cluster/predictions")
+    logger.info("  - Monitoring: http://localhost:5001/monitoring/stats")
+    logger.info("=" * 50)
+    
+    app.run(host='0.0.0.0', port=5001, debug=True)
