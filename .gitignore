@@ -41,7 +41,8 @@ Thumbs.db
 
 # Logs
 *.log
-
+logs_*
+*.json
 # Local development
 .env.local
 .env.development.local

@@ -8,6 +8,7 @@ import sys
 import os
 import logging
 import multiprocessing
+import json
 
 from flask_cors import CORS
 from scheduling import Scheduler
@@ -812,6 +813,7 @@ def get_alert_history():
     limit = request.args.get('limit', 50, type=int)
     history = email_alerter.get_alert_history(limit)
     return jsonify({'history': history, 'total': len(history)})
+
 
 @app.route('/alerts/simulate-failure', methods=['POST'])
 def simulate_node_failure():
