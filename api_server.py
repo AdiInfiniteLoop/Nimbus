@@ -23,7 +23,7 @@ import tempfile
 # Configure logging with more details
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
@@ -802,7 +802,7 @@ def test_alert():
     logger.info("Sending test alert")
     success = email_alerter.send_alert(
         'Test Alert',
-        'This is a test alert from the Cluster Orchestrator',
+        'This is a test alert from CuraNet',
         'INFO'
     )
     return jsonify({'message': 'Test alert sent', 'success': success})
@@ -849,7 +849,7 @@ if __name__ == '__main__':
     file_handler = logging.FileHandler('orchestrator.log')
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s'
+        '%(levelname)s - %(message)s'
     ))
     logging.getLogger().addHandler(file_handler)
     
@@ -875,7 +875,7 @@ if __name__ == '__main__':
     logger.info("Auto-scaler initialized (disabled by default)")
     
     logger.info("=" * 50)
-    logger.info("🚀 Cluster Orchestrator API Server Ready")
+    logger.info("🚀 CuraNet API Server Ready")
     logger.info("=" * 50)
     logger.info("API Endpoints:")
     logger.info("  - Cluster: http://localhost:5001/cluster/status")

@@ -29,7 +29,7 @@ def print_help():
     max_pod_cpu = min(6, system_cpu)
     
     print(f"""
-Kubernetes-like Simulator CLI
+CuraNet CLI
 ----------------------------
 System Information:
 - Available CPU cores: {system_cpu}
@@ -273,7 +273,7 @@ def simulate_failure(node_id):
 
 def interactive_mode():
     """Enhanced interactive mode with all features"""
-    print("Welcome to Kubernetes-like Simulator CLI")
+    print("CuraNet CLI - Interactive Mode")
     print_help()
     
     # Wait for server to be ready
