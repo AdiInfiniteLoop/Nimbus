@@ -10,12 +10,14 @@ logger = logging.getLogger(__name__)
 class AutoScaler:
     """Intelligent auto-scaling based on ML predictions and current load"""
     
-    def __init__(self, nodes: Dict, pods: Dict, predictor, node_manager, config: Dict = None):
+    def __init__(self, nodes: Dict, pods: Dict, predictor, node_manager, email_alerter=None, config: Dict = None):
+
         self.nodes = nodes
         self.pods = pods
         self.predictor = predictor
         self.node_manager = node_manager
-        
+        self.email_alerter = email_alerter
+        self.alerted = False
         # Configuration
         self.enabled = False
         self.config = config or {
@@ -184,7 +186,23 @@ class AutoScaler:
         )
         
         result = self.node_manager.add_node(self.config['scale_up_cpu'])
-        
+        # ===== REMOVE THE EXACT OVERLOADED NODE =====
+        try:
+            overloaded_node = max(
+                self.nodes,
+                key=lambda nid: self.nodes[nid]['cpu_capacity'] - self.nodes[nid]['cpu_available']
+            )
+
+            if overloaded_node != result:
+                logger.info(f"Removing overloaded node {overloaded_node} to trigger pod reschedule")
+                self.node_manager.remove_node(overloaded_node)
+            else:
+                logger.info("New node is the overloaded node (rare case); skipping removal")
+
+        except Exception as e:
+            logger.error(f"Failed to remove overloaded node after scale-up: {e}")
+        # ============================================
+
         if isinstance(result, dict) and 'error' in result:
             logger.error(f"Scale up failed: {result['error']}")
             return False
@@ -253,7 +271,17 @@ class AutoScaler:
                 
                 # Calculate metrics
                 metrics = self._calculate_cluster_metrics()
-                
+                # ===== EMAIL ALERT FOR HIGH CPU USAGE =====
+                cpu_percent = metrics['avg_cpu_usage']
+                threshold = self.config['scale_up_threshold']
+
+                if cpu_percent >= threshold:
+                    if not self.alerted and self.email_alerter:
+                        self.email_alerter.high_load_alert(cpu_percent)
+                        logger.info(f"EMAIL ALERT SENT: CPU={cpu_percent:.1f}% >= threshold {threshold}%")
+                        self.alerted = True
+                else:
+                    self.alerted = False
                 # Skip if no nodes
                 if metrics['total_nodes'] == 0:
                     time.sleep(10)
@@ -270,12 +298,10 @@ class AutoScaler:
                     self._scale_up(metrics)
                 elif self._should_scale_down(metrics):
                     self._scale_down(metrics)
-                
-                time.sleep(10)  # Check every 10 seconds
-                
+                                
             except Exception as e:
                 logger.error(f"Auto-scaler loop error: {e}")
-                time.sleep(10)
+            time.sleep(20)
     
     def get_status(self) -> Dict:
         """Get auto-scaler status"""

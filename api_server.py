@@ -870,14 +870,22 @@ if __name__ == '__main__':
     logger.info("ML predictor started")
     
     # Initialize and start auto-scaler
-    autoscaler = AutoScaler(nodes, pods, cpu_predictor, NodeManager, config={
-        'scale_up_threshold': 75,
-        'scale_down_threshold': 30,
-        'min_nodes': 1,
-        'max_nodes': 10,
-        'scale_up_cpu': 4,
-        'cooldown_seconds': 60
-    })
+    autoscaler = AutoScaler(
+        nodes,
+        pods,
+        cpu_predictor,
+        NodeManager,
+        email_alerter=email_alerter,
+        config={
+            'scale_up_threshold': 75,
+            'scale_down_threshold': 30,
+            'min_nodes': 1,
+            'max_nodes': 10,
+            'scale_up_cpu': 4,
+            'cooldown_seconds': 60
+        }
+    )
+
     autoscaler.start()
     logger.info("Auto-scaler initialized (disabled by default)")
     

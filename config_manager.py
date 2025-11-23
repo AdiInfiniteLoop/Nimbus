@@ -231,14 +231,14 @@ class EmailAlerter:
         """Send alert for node failure"""
         subject = f"🚨 Node Failure: {node_id[:12]}"
         message = f"""
-Node Failure Detected
+        Node Failure Detected
 
-Node ID: {node_id}
-Time: {datetime.now().isoformat()}
-Status: UNHEALTHY
+        Node ID: {node_id}
+        Time: {datetime.now().isoformat()}
+        Status: UNHEALTHY
 
-Action Required: Check node status and investigate cause.
-Pods on this node will be automatically rescheduled.
+        Action Required: Check node status and investigate cause.
+        Pods on this node will be automatically rescheduled.
         """
         self.send_alert(subject, message.strip(), 'CRITICAL')
     
@@ -246,13 +246,13 @@ Pods on this node will be automatically rescheduled.
         """Send alert for node recovery"""
         subject = f"✅ Node Recovered: {node_id[:12]}"
         message = f"""
-Node Recovery Detected
+        Node Recovery Detected
 
-Node ID: {node_id}
-Time: {datetime.now().isoformat()}
-Status: HEALTHY
+        Node ID: {node_id}
+        Time: {datetime.now().isoformat()}
+        Status: HEALTHY
 
-The node has recovered and is now accepting workloads.
+        The node has recovered and is now accepting workloads.
         """
         self.send_alert(subject, message.strip(), 'INFO')
     
@@ -260,14 +260,14 @@ The node has recovered and is now accepting workloads.
         """Send alert for auto-scaling events"""
         subject = f"⚡ Auto-Scale {action.upper()}: {node_id[:12]}"
         message = f"""
-Auto-Scaling Event
+        Auto-Scaling Event
 
-Action: {action.upper()}
-Node ID: {node_id}
-Time: {datetime.now().isoformat()}
-Reason: {reason}
+        Action: {action.upper()}
+        Node ID: {node_id}
+        Time: {datetime.now().isoformat()}
+        Reason: {reason}
 
-The cluster has automatically adjusted capacity based on predicted load.
+        The cluster has automatically adjusted capacity based on predicted load.
         """
         self.send_alert(subject, message.strip(), 'INFO')
     
@@ -275,14 +275,22 @@ The cluster has automatically adjusted capacity based on predicted load.
         """Send alert for high cluster load"""
         subject = f"⚠️ High Cluster Load: {cpu_percent:.1f}%"
         message = f"""
-High Load Warning
+        🔥 High CPU Load Detected
 
-Current CPU Usage: {cpu_percent:.1f}%
-Time: {datetime.now().isoformat()}
-Threshold: 80%
+        Cluster load has exceeded the configured threshold.
 
-Consider scaling up or optimizing workloads.
+        Current Usage : {cpu_percent:.1f}%
+        Timestamp     : {datetime.now().isoformat()}
+
+        Impact:
+        Performance may degrade if load continues to rise.
+
+        Suggested Actions:
+        • Scale up cluster capacity
+        • Review high-usage pods
+        • Check for abnormal traffic or pod loops
         """
+
         self.send_alert(subject, message.strip(), 'WARNING')
     
     def get_alert_history(self, limit: int = 50) -> list:
