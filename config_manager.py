@@ -1,6 +1,9 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import json
 import logging
 from datetime import datetime
+import smtplib
 from typing import Dict, Optional
 import docker
 
@@ -174,7 +177,29 @@ class EmailAlerter:
         """Update email configuration"""
         self.config.update(config)
         logger.info("Email alert config updated")
-    
+
+    def _send_real_email(self, subject: str, message: str) -> bool:
+        """Send email using Gmail SMTP with real delivery."""
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.config["sender_email"]
+            msg["To"] = ", ".join(self.config["recipient_emails"])
+            msg["Subject"] = subject
+
+            msg.attach(MIMEText(message, "plain"))
+
+            with smtplib.SMTP(self.config["smtp_server"], self.config["smtp_port"]) as server:
+                server.starttls()
+                server.login(self.config["sender_email"], self.config["sender_password"])
+                server.send_message(msg)
+
+            logger.info(f"📧 REAL EMAIL SENT: {subject}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send real email: {e}")
+            return False
+
     def send_alert(self, subject: str, message: str, severity: str = 'INFO') -> bool:
         """Send an email alert"""
         if not self.enabled:
@@ -190,22 +215,17 @@ class EmailAlerter:
             'sent': False
         }
         
-        # In production, this would use smtplib
-        # For simulation/testing, we just log it
-        if self.config.get('sender_email') and self.config.get('recipient_emails'):
-            try:
-                # Simulated send
-                logger.info(f"📧 EMAIL ALERT [{severity}]: {subject}")
-                logger.info(f"   To: {', '.join(self.config['recipient_emails'])}")
-                logger.info(f"   Message: {message}")
-                alert['sent'] = True
-            except Exception as e:
-                logger.error(f"Failed to send email alert: {e}")
+        
+        # Attempt real email
+        if self.config.get('sender_email') and \
+        self.config.get('sender_password') and \
+        self.config.get('recipient_emails'):
+
+            sent = self._send_real_email(subject, message)
+            alert['sent'] = sent
         else:
             logger.warning("Email alert not sent: Missing configuration")
-        
-        self.alert_history.append(alert)
-        return alert['sent']
+
     
     def node_failure_alert(self, node_id: str):
         """Send alert for node failure"""

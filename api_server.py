@@ -20,6 +20,7 @@ from config_manager import ClusterConfigManager, LogExporter, EmailAlerter
 from flask import send_file
 import tempfile
 
+
 # Configure logging with more details
 logging.basicConfig(
     level=logging.INFO,
@@ -80,9 +81,17 @@ try:
 
     config_manager = ClusterConfigManager(nodes, pods, client)
     log_exporter = LogExporter()
-    email_alerter = EmailAlerter(enabled=False)  # Disabled by default
+    email_alerter = EmailAlerter() 
     autoscaler = None  # Will be initialized after Flask app starts
 
+    email_alerter.update_config({
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "sender_email": "pleasedontbyteme@gmail.com",
+        "sender_password": "haoa xedk hheu vlge",
+        "recipient_emails": ["2022cs_adityapradhan_a@nie.ac.in"]
+    })
+    email_alerter.enable()
 
     # List all existing containers
     existing_containers = client.containers.list()
@@ -129,11 +138,10 @@ class NodeManager:
                 logger.error(error_msg)
                 return {'error': error_msg}
             
-            # Launch a Docker container for the node
             try:
                 container = client.containers.run(
                     'python:3.9-slim',
-                    command='tail -f /dev/null',  # Keep container running
+                    command='tail -f /dev/null',
                     detach=True,
                     name=f'node-{node_id}'
                 )
@@ -254,7 +262,6 @@ class PodScheduler:
             logger.error("No nodes available in the cluster")
             return {'error': 'No nodes available in the cluster'}
         
-        # First-Fit algorithm implementation with proper CPU validation
         scheduler = Scheduler(client, nodes, pods)
         pod_id, error = scheduler.schedule(cpu_required, image)
     
