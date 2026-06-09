@@ -688,24 +688,6 @@ useEffect(() => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {prediction ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <TrendingUp size={14} className="text-purple-400" />
-                            <span className="text-sm font-semibold">{prediction.predicted_cpu.toFixed(1)}%</span>
-                          </div>
-                          <div className={`text-xs ${textSecondary}`}>
-                            Conf: {((prediction.confidence || 0) * 100).toFixed(0)}%
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                          <Loader className="animate-spin" size={12} />
-                          Training...
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
