@@ -638,7 +638,6 @@ useEffect(() => {
                 <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Status</th>
                 <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>CPU</th>
                 <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Pods</th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>ML Prediction</th>
                 <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Actions</th>
               </tr>
             </thead>
